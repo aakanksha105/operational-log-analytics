@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>Operational Log Analytics Dashboard</title>
+
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='styles.css') }}"
+    >
+
+    <script
+        src="https://cdn.jsdelivr.net/npm/chart.js"
+        defer
+    ></script>
+
+    <script
+        src="{{ url_for('static', filename='dashboard.js') }}"
+        defer
+    ></script>
+</head>
+
+<body>
+    <header class="page-header">
+        <div>
+            <p class="eyebrow">Operational Intelligence</p>
+            <h1>Log Analytics Dashboard</h1>
+            <p class="subtitle">
+                Monitor Loghub Apache and HDFS activity, compare services,
+                investigate trends, and review statistical anomalies.
+            </p>
+        </div>
+
+        <div class="header-actions">
+            <button
+                id="runAnomalyButton"
+                class="button button-primary"
+                type="button"
+            >
+                Run Anomaly Detection
+            </button>
+
+            <a
+                id="csvExportLink"
+                class="button button-secondary"
+                href="/api/export/logs.csv"
+            >
+                Export CSV
+            </a>
+
+            <a
+                id="jsonExportLink"
+                class="button button-secondary"
+                href="/api/export/report.json"
+            >
+                Export JSON
+            </a>
+        </div>
+    </header>
+
+    <main class="dashboard-container">
+        <section class="panel filter-panel">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Interactive Analysis</p>
+                    <h2>Dashboard Filters</h2>
+                </div>
+
+                <p id="filterStatus" class="status-text">
+                    Showing all available records.
+                </p>
+            </div>
+
+            <div class="filters-grid">
+                <div class="filter-group">
+                    <label for="datasetFilter">Dataset</label>
+                    <select id="datasetFilter">
+                        <option value="">All datasets</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="serviceFilter">Service</label>
+                    <select id="serviceFilter">
+                        <option value="">All services</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="severityFilter">Severity</label>
+                    <select id="severityFilter">
+                        <option value="">All severities</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="startDate">Start date</label>
+                    <input
+                        id="startDate"
+                        type="date"
+                    >
+                </div>
+
+                <div class="filter-group">
+                    <label for="endDate">End date</label>
+                    <input
+                        id="endDate"
+                        type="date"
+                    >
+                </div>
+
+                <div class="filter-actions">
+                    <button
+                        id="applyFiltersButton"
+                        class="button button-primary"
+                        type="button"
+                    >
+                        Apply Filters
+                    </button>
+
+                    <button
+                        id="clearFiltersButton"
+                        class="button button-muted"
+                        type="button"
+                    >
+                        Clear
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section class="kpi-grid">
+            <article class="kpi-card">
+                <span class="kpi-label">Total Logs</span>
+                <strong id="totalLogs" class="kpi-value">0</strong>
+                <span class="kpi-description">
+                    Records matching the selected filters
+                </span>
+            </article>
+
+            <article class="kpi-card">
+                <span class="kpi-label">Severe Event Rate</span>
+                <strong id="errorRate" class="kpi-value">0%</strong>
+                <span class="kpi-description">
+                    ERROR and CRITICAL events
+                </span>
+            </article>
+
+            <article class="kpi-card">
+                <span class="kpi-label">Warning Rate</span>
+                <strong id="warningRate" class="kpi-value">0%</strong>
+                <span class="kpi-description">
+                    Percentage of warning-level records
+                </span>
+            </article>
+
+            <article class="kpi-card">
+                <span class="kpi-label">Critical Events</span>
+                <strong id="criticalEvents" class="kpi-value">0</strong>
+                <span class="kpi-description">
+                    Highest-priority log events
+                </span>
+            </article>
+
+            <article class="kpi-card">
+                <span class="kpi-label">Detected Anomalies</span>
+                <strong id="anomaliesDetected" class="kpi-value">0</strong>
+                <span class="kpi-description">
+                    Statistical anomalies currently stored
+                </span>
+            </article>
+
+            <article class="kpi-card">
+                <span class="kpi-label">Total Services</span>
+                <strong id="totalServices" class="kpi-value">0</strong>
+                <span class="kpi-description">
+                    Distinct services represented
+                </span>
+            </article>
+
+            <article class="kpi-card">
+                <span class="kpi-label">Avg. Errors per Hour</span>
+                <strong id="averageErrorsPerHour" class="kpi-value">
+                    0
+                </strong>
+                <span class="kpi-description">
+                    Mean hourly ERROR volume
+                </span>
+            </article>
+
+            <article class="kpi-card">
+                <span class="kpi-label">Most Active Service</span>
+                <strong
+                    id="mostActiveService"
+                    class="kpi-value kpi-value-text"
+                >
+                    —
+                </strong>
+                <span
+                    id="mostActiveServiceCount"
+                    class="kpi-description"
+                >
+                    0 records
+                </span>
+            </article>
+        </section>
+
+        <section class="chart-grid chart-grid-two">
+            <article class="panel chart-panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="eyebrow">Distribution</p>
+                        <h2>Severity Breakdown</h2>
+                    </div>
+                </div>
+
+                <div class="chart-wrapper">
+                    <canvas id="severityChart"></canvas>
+                </div>
+            </article>
+
+            <article class="panel chart-panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="eyebrow">Activity</p>
+                        <h2>Top Services by Log Volume</h2>
+                    </div>
+                </div>
+
+                <div class="chart-wrapper">
+                    <canvas id="serviceChart"></canvas>
+                </div>
+            </article>
+        </section>
+
+        <section class="panel chart-panel chart-panel-wide">
+            <div class="panel-header">
+                <div>
+                    <p class="eyebrow">Historical Trend</p>
+                    <h2>Error Volume Over Time</h2>
+                </div>
+
+                <select id="trendFrequency" class="compact-select">
+                    <option value="15min">15 minutes</option>
+                    <option value="1h" selected>Hourly</option>
+                    <option value="6h">6 hours</option>
+                    <option value="1d">Daily</option>
+                </select>
+            </div>
+
+            <div class="chart-wrapper chart-wrapper-wide">
+                <canvas id="errorTrendChart"></canvas>
+            </div>
+        </section>
+
+        <section class="chart-grid chart-grid-two">
+            <article class="panel chart-panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="eyebrow">Time-Series Analytics</p>
+                        <h2>Hourly Severe Events</h2>
+                    </div>
+                </div>
+
+                <div class="chart-wrapper">
+                    <canvas id="hourlyChart"></canvas>
+                </div>
+            </article>
+
+            <article class="panel chart-panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="eyebrow">Time-Series Analytics</p>
+                        <h2>Daily Severe Events</h2>
+                    </div>
+                </div>
+
+                <div class="chart-wrapper">
+                    <canvas id="dailyChart"></canvas>
+                </div>
+            </article>
+        </section>
+
+        <section class="panel chart-panel chart-panel-wide">
+            <div class="panel-header">
+                <div>
+                    <p class="eyebrow">Comparative Analytics</p>
+                    <h2>Service Error-Rate Comparison</h2>
+                </div>
+            </div>
+
+            <div class="chart-wrapper chart-wrapper-wide">
+                <canvas id="serviceComparisonChart"></canvas>
+            </div>
+        </section>
+
+        <section class="table-grid">
+            <article class="panel table-panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="eyebrow">Recurring Issues</p>
+                        <h2>Root-Cause Patterns</h2>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Service</th>
+                                <th>Severity</th>
+                                <th>Pattern</th>
+                                <th>Count</th>
+                                <th>Share</th>
+                                <th>Investigation</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="rootCauseTableBody">
+                            <tr>
+                                <td colspan="6" class="empty-state">
+                                    No root-cause patterns loaded.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+
+            <article class="panel table-panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="eyebrow">Frequent Events</p>
+                        <h2>Top Recurring Messages</h2>
+                    </div>
+                </div>
+
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Severity</th>
+                                <th>Message</th>
+                                <th>Count</th>
+                            </tr>
+                        </thead>
+
+                        <tbody id="topMessagesTableBody">
+                            <tr>
+                                <td colspan="3" class="empty-state">
+                                    No recurring messages loaded.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </article>
+        </section>
+
+        <section class="panel table-panel">
+            <div class="panel-header">
+                <div>
+                    <p class="eyebrow">Statistical Monitoring</p>
+                    <h2>Recent Anomalies</h2>
+                </div>
+
+                <span id="anomalyStatus" class="status-badge">
+                    Not refreshed
+                </span>
+            </div>
+
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Dataset</th>
+                            <th>Service</th>
+                            <th>Type</th>
+                            <th>Observed</th>
+                            <th>Baseline</th>
+                            <th>Threshold</th>
+                            <th>Description</th>
+                            <th>Recommended Action</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="anomalyTableBody">
+                        <tr>
+                            <td colspan="9" class="empty-state">
+                                No anomalies loaded.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="panel report-panel">
+            <div>
+                <p class="eyebrow">Automated Reporting</p>
+                <h2>Operational Reports</h2>
+                <p>
+                    Generate filtered daily or weekly JSON reports containing
+                    KPI summaries, trend analytics, service comparisons, and
+                    recurring issue patterns.
+                </p>
+            </div>
+
+            <div class="report-actions">
+                <button
+                    id="loadDailyReportButton"
+                    class="button button-secondary"
+                    type="button"
+                >
+                    Preview Daily Report
+                </button>
+
+                <button
+                    id="loadWeeklyReportButton"
+                    class="button button-secondary"
+                    type="button"
+                >
+                    Preview Weekly Report
+                </button>
+            </div>
+
+            <pre id="reportPreview" class="report-preview">
+Select a report to preview its JSON output.
+            </pre>
+        </section>
+
+        <section
+            id="errorBanner"
+            class="error-banner hidden"
+            role="alert"
+        ></section>
+    </main>
+
+    <footer class="page-footer">
+        <p>
+            Built with Python, Flask, PostgreSQL, SQL, Pandas,
+            Chart.js, and public Loghub datasets.
+        </p>
+    </footer>
+</body>
+</html>

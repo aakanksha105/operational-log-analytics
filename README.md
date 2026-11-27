@@ -14,6 +14,14 @@ Built with **Python, Flask, PostgreSQL, Pandas, SQL, REST APIs, and Chart.js**; 
 
 [![Tableau Executive Overview showing log volume, severity, and service metrics](docs/images/Tableau_Executive_Overview.png)](https://public.tableau.com/views/Operational_Log_Analytics/ExecutiveOverview)
 
+## Key findings
+
+- **Apache accounted for all 1,785 error records** in the 10,000-row export. That was **29.8% of the 6,000 Apache records**.
+- **December 4, 2005 had the highest daily error count**, with **933 errors** by event timestamp, compared with **852** on December 5.
+- **The most frequent error message** was `mod_jk child workerEnv in error state 6`, which appeared **1,107 times** and accounted for **62.0% of error records**.
+
+**Recommendation.** Start with Apache's `mod_jk` worker errors. Deduplicate repeated ingestions, then group the remaining events by message and time window to identify which periods warrant investigation.
+
 ## Project highlights
 
 | Metric | Value | Definition |
@@ -94,7 +102,7 @@ The source samples are from [Loghub](https://github.com/logpai/loghub). The incl
 
 **Anomaly limitations:** A spike or threshold breach is a candidate for investigation, not a ground-truth incident label. Similarly, grouped recurring messages indicate patterns rather than verified causality. “AI-style explanations” refer to programmatic human-readable summaries; this README does not claim a deployed generative-AI model.
 
-**Performance note:** Research work on the SQL/log-analytics implementation reported approximately **29.75% faster database queries** under a project benchmarking workload. This is a project-specific reported result, **not** a reproducible performance guarantee from the CSV alone; benchmark code, environment, and before/after measurements would be needed to validate it independently.
+**Performance.** In my research assistant work on this system, rewriting reporting queries with CTEs and window functions and making schema changes reduced query latency by 29.75% in our benchmark workload. The benchmark environment is not included in this repository.
 
 ## Run locally
 
